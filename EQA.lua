@@ -20,6 +20,25 @@ TODO:
 local e = aura_env
 local c = e.config
 local f = WeakAuras.regions[e.id].region
+local AceTimer = LibStub('AceTimer-3.0')
+--local AdiBags = LibStub('AceAddon-3.0'):GetAddon('AdiBags')
+--local AdiBags = LibStub('AdiBags', true)
+
+if c.AdiBagsOnLoginHook then
+    if IsAddOnLoaded("AdiBags") then
+        if not e.hasLoaded then
+            WeakAuras.timer:ScheduleTimer(function() ToggleBackpack() end, 0.1)
+            WeakAuras.timer:ScheduleTimer(function() ToggleBackpack() end, 0.3)
+            WeakAuras.timer:ScheduleTimer(function()
+                if AdiBagsContainer1 then
+                    AdiBagsContainer1:HookScript("OnHide", function() WeakAuras.ScanEvents("EQA_ADIBAGS_HIDE", AdiBagsContainer1) end)
+                    AdiBagsContainer1:HookScript("OnShow", function() WeakAuras.ScanEvents("EQA_ADIBAGS_SHOW", AdiBagsContainer1) end)
+                end
+            end, 2)
+            e.hasLoaded = true
+        end
+    end
+end
 
 e.availableQuests = {}
 e.activeQuests = {}
@@ -108,7 +127,7 @@ end
 
 
 function e.noProfile()
-    e.sendMessage("Profile not selected, fix in Custom Options!")
+    e.sendMessage("No Active Profile Name found. You can fix it in options!")
 end
 
 if e.ActiveProfile == 0 then
@@ -208,37 +227,45 @@ function e.GetBagUpgrades()
     if AdiBagsItemButton1 then
         for i = 1,360 do
             local frame = _G["AdiBagsItemButton"..i]
-            if frame and frame.itemLink then
-                local itemLink = frame.itemLink
-                --print(itemLink)
-                local iteminfo = GetItemStats(itemLink)
-                local loc = select(9,GetItemInfo(itemLink))
-                local slot = e.equipLoctoSlot[loc]
-                --print(loc)
-                local equippedValue = e.GetCurrentItemValue(loc)
-                local value = e.GetValueForItem(iteminfo, itemLink, false, nil, slot)
-                --print(equippedValue, value, "=", value - equippedValue)
-                if value and value > 0 then
-                    if equippedValue then
-                        if e.canUseItem(select(6, GetItemInfo(itemLink))) then
-                            if (value/equippedValue) > 1 then
-                                --print(itemLink)
-                                --print(i, frame, "is upgrade", value - equippedValue)
-                                table.insert(WA_BagUpgrades, {["frame"] = i, ["AdiBags"] = true})
+            if frame then
+                --print(frame)
+                if frame.itemLink then
+                    local itemLink = frame.itemLink
+                    --print(itemLink)
+                    local iteminfo = GetItemStats(itemLink)
+                    local loc = select(9,GetItemInfo(itemLink))
+                    local slot = e.equipLoctoSlot[loc]
+                    --print(loc)
+                    local equippedValue = e.GetCurrentItemValue(loc)
+                    local value = e.GetValueForItem(iteminfo, itemLink, false, nil, slot)
+                    --print(equippedValue, value, "=", value - equippedValue)
+                    --print(value)
+                    if value and value > 0 then
+                        if equippedValue then
+                            if e.canUseItem(select(6, GetItemInfo(itemLink))) then
+                                if (value/equippedValue) > 1 then
+                                    --print(itemLink)
+                                    --print(i, frame, "is upgrade", value - equippedValue)
+                                    table.insert(WA_BagUpgrades, {["frame"] = i, ["AdiBags"] = true})
 
-                                if frame then
-                                    frame.isUpgrade = true
-                                end
-                            elseif value == equippedValue then
-                            elseif (value/equippedValue) < 1 then
-                                if frame then
-                                    frame.isDowngrade = true
+                                    if frame then
+                                        frame.isUpgrade = true
+                                    end
+                                elseif value == equippedValue then
+                                    if frame then
+                                        frame.isUpgrade = nil
+                                    end
+                                elseif (value/equippedValue) < 1 then
+                                    if frame then
+                                        frame.isDowngrade = true
+                                        frame.isUpgrade = nil
+                                    end
                                 end
                             end
-                        end
-                    elseif e.canUseItem(select(6, GetItemInfo(itemLink))) then
-                        if frame then
-                            frame.isUpgrade = true
+                        elseif e.canUseItem(select(6, GetItemInfo(itemLink))) then
+                            if frame then
+                                frame.isUpgrade = true
+                            end
                         end
                     end
                 end
@@ -397,13 +424,16 @@ end
 
 -- Create Tooltip for Hooking item text (Used for speed determination)
 function e.createTooltip()
-    CreateFrame( "GameTooltip", "EQATooltip", nil, "GameTooltipTemplate" ) -- Tooltip name cannot be nil
-    EQATooltip:SetOwner( WorldFrame, "ANCHOR_NONE" );
-    -- Allow tooltip SetX() methods to dynamically add new lines based on these
-    EQATooltip:AddFontStrings(
-            EQATooltip:CreateFontString( "$parentTextLeft1", nil, "GameTooltipText" ),
-            EQATooltip:CreateFontString( "$parentTextRight1", nil, "GameTooltipText" )
-    )
+    CreateFrame("GameTooltip", "EQATooltip", nil, "GameTooltipTemplate") -- Tooltip name cannot be nil
+    EQATooltip:SetOwner(WorldFrame, "ANCHOR_NONE")
+
+    -- Create 9 pairs of left and right font strings for EQATooltip
+    for i = 1, 20 do
+        EQATooltip:AddFontStrings(
+                EQATooltip:CreateFontString("$parentTextLeft" .. i, nil, "GameTooltipText"),
+                EQATooltip:CreateFontString("$parentTextRight" .. i, nil, "GameTooltipText")
+        )
+    end
 end
 e.createTooltip()
 
@@ -672,7 +702,7 @@ function e.GetValueForItem(table, item, quest, profile, slot, tooltip)
         profile = e.ActiveProfile
     end
     if not c.statWeights[profile] then
-        e.sendMessage("No Profile detected, fix this in config.")
+        e.sendMessage("No Active Profile detected, fix this in config.")
         return
     end
     for i,v in pairs(c.statWeights[profile]) do
@@ -914,7 +944,7 @@ function e.getAvailableQuests(isQuestGreeting)
 
     for i = 1, available do
         if isQuestGreeting then
-            name, level, isLowLevel, isDaily, isRepeatable = GetAvailableTitle(index), GetAvailableLevel(index), GetAvailableQuestInfo(i)
+            name, level, isLowLevel, isDaily, isRepeatable = GetAvailableTitle(i), GetAvailableLevel(i), GetAvailableQuestInfo(i)
         else
             name, level, isLowLevel, isDaily, isRepeatable = select((i*5-4),GetGossipAvailableQuests())
         end
@@ -947,12 +977,60 @@ function e.QuestGreeting()
     e.getAvailableQuests(true)
 end
 
+
+-- Function to check for upgrades in a chat message
+local function CheckForUpgradeInChat(message)
+    -- Check for item links in the message
+    for itemLink in message:gmatch("|%x+|Hitem:.-|h%[.-%]|h|r") do
+        -- Get the item ID from the item link
+        local itemID = itemLink:match("item:(%d+)")
+        if itemID then
+            -- Query the item info
+            local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture, itemSellPrice = GetItemInfo(itemID)
+            if itemName then
+                -- Check if the item is usable by the player's class
+                if e.canUseItem(itemType, itemSubType, _, itemEquipLoc) then
+                    -- Get the tooltip text
+                    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
+                    GameTooltip:SetHyperlink(itemLink)
+                    local tooltipText = ""
+                    for i = 1, GameTooltip:NumLines() do
+                        local line = _G["GameTooltipTextLeft" .. i]
+                        if line and line:GetText() then
+                            tooltipText = tooltipText .. line:GetText() .. "\n"
+                        end
+                    end
+                    GameTooltip:Hide()
+
+                    -- Check if the item is an upgrade
+                    local loc = select(9, GetItemInfo(itemLink))
+                    local slot = e.equipLoctoSlot[loc]
+                    local equippedValue = e.GetCurrentItemValue(loc)
+                    local value = e.GetValueForItem(GetItemStats(itemLink), itemLink, false, nil, slot)
+
+                    if value and value > 0 and equippedValue and value > equippedValue then
+                        -- Print the upgrade message
+                        print("|cFF33FF99EQA: |r|cFFFFFF00Upgrade found in chat: |r" .. itemLink)
+                    end
+                end
+            end
+        end
+    end
+end
+
+-- Hook into the guild chat message event
+ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", function(self, event, message, sender, language, channelString, target, flags, channelNumber, channelName, unknown, lineID, guid)
+    CheckForUpgradeInChat(message)
+    return false
+end)
+
+
 -- *Initionation
 
 function e:OnEvent(event, ...)
     --START_LOOT_ROLL arg1 = id
-    if event == "BAG_UPDATE" or event == "UPDATE_BAG" or event == "BANKFRAME_OPENED" then
-        e.GetBagUpgrades()
+    if event == "BAG_UPDATE" or event == "UPDATE_BAG" or event == "BANKFRAME_OPENED" or event == "EQA_ADIBAGS_SHOW" then
+        AceTimer:ScheduleTimer(function() e.GetBagUpgrades() end, 0.4)
     end
 
     if event == "MERCHANT_SHOW" then
