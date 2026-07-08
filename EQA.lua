@@ -26,6 +26,35 @@ local AceTimer = LibStub('AceTimer-3.0')
 --local AdiBags = LibStub('AceAddon-3.0'):GetAddon('AdiBags')
 --local AdiBags = LibStub('AdiBags', true)
 
+-- Locale-aware strings
+e.L = {}
+if GetLocale() == "ruRU" then
+    e.L.WEAPON            = "Оружие"
+    e.L.ARMOR             = "Доспехи"
+    e.L.PLATE             = "Латные"
+    e.L.MAIL              = "Кольчужные"
+    e.L.SHIELDS           = "Щиты"
+    e.L.FOOD_DRINK        = "Еда и напитки"
+    e.L.SPEED             = "Скорость"
+    -- Weapon subtypes from GetAuctionItemSubClasses(1) that map to skill line names
+    e.L.ONE_HAND_MACES    = "Одноручное дробящее"
+    e.L.ONE_HAND_SWORDS   = "Одноручные мечи"
+    e.L.ONE_HAND_AXES     = "Одноручные топоры"
+    e.L.DAGGERS           = "Кинжалы"
+else
+    e.L.WEAPON            = "Weapon"
+    e.L.ARMOR             = "Armor"
+    e.L.PLATE             = "Plate"
+    e.L.MAIL              = "Mail"
+    e.L.SHIELDS           = "Shields"
+    e.L.FOOD_DRINK        = "Food & Drink"
+    e.L.SPEED             = "Speed"
+    e.L.ONE_HAND_MACES    = "One-Handed Maces"
+    e.L.ONE_HAND_SWORDS   = "One-Handed Swords"
+    e.L.ONE_HAND_AXES     = "One-Handed Axes"
+    e.L.DAGGERS           = "Daggers"
+end
+
 if c.AdiBagsOnLoginHook then
     if IsAddOnLoaded("AdiBags") then
         if not e.hasLoaded then
@@ -413,13 +442,29 @@ e.CanAlwaysUse = {
     ["INVTYPE_BAG"] = true,
 }
 
-e.SlotTranslate = {
-    ["One-Handed Maces"] = "Maces",
-    ["One-Handed Swords"] = "Swords",
-    ["One-Handed Axes"] = "Axes",
-    ["One-Handed Dagger"] = "Daggers",
-    ["Shields"] = "Shield",
-}
+e.SlotTranslate = {}
+if GetLocale() == "ruRU" then
+    -- Weapon subtypes → skill line names (from SkillLine.dbc)
+    e.SlotTranslate["Одноручное дробящее"] = "Дробящее оружие"
+    e.SlotTranslate["Одноручные мечи"]     = "Мечи"
+    e.SlotTranslate["Одноручные топоры"]   = "Топоры"
+    e.SlotTranslate["Кинжалы"]             = "Кинжалы"
+    e.SlotTranslate["Щиты"]               = "Щит"
+    -- Armor subtypes → skill line names (from SkillLine.dbc)
+    e.SlotTranslate["Тканевые"]   = "Тканевые доспехи"
+    e.SlotTranslate["Кожаные"]    = "Кожаные доспехи"
+    e.SlotTranslate["Кольчужные"] = "Кольчужные доспехи"
+    e.SlotTranslate["Латные"]     = "Латы"
+else
+    -- Weapon subtypes → skill line names
+    e.SlotTranslate["One-Handed Maces"] = "Maces"
+    e.SlotTranslate["One-Handed Swords"] = "Swords"
+    e.SlotTranslate["One-Handed Axes"]  = "Axes"
+    e.SlotTranslate["Daggers"]          = "Daggers"
+    e.SlotTranslate["Shields"]          = "Shield"
+    -- Armor subtypes → skill line names (enUS: subtype == skill line, no mapping needed)
+    -- Fallback name == subtype handles these
+end
 
 e.dump = function(dump)
     AceLibrary('AceConsole-2.0'):PrintLiteral(dump)
@@ -595,13 +640,13 @@ function e.canUseItem(type, subtype, _, invtype)
         return true
     end
 
-    if subtype == "Food & Drink" then
+    if subtype == e.L.FOOD_DRINK then
         return true
     end
     --print("Found Type is: ", type, subtype)
     for i = 1, GetNumSkillLines() do
         local name = GetSkillLineInfo(i)
-        if type == "Armor" then
+        if type == e.L.ARMOR then
             if e.SlotTranslate[subtype] then
                 if name == e.SlotTranslate[subtype] then
                     --print("Translation sucessful: ", e.WeaponSlotTranslate[subtype])
@@ -614,13 +659,13 @@ function e.canUseItem(type, subtype, _, invtype)
                 end
             end
             if c.armorException and e.exceptionClasses[e.Class] and (UnitLevel("player") or 0) > 30 then
-                if subtype == "Plate" and (e.Class == "WARRIOR" or e.Class == "PALADIN") then
+                if subtype == e.L.PLATE and (e.Class == "WARRIOR" or e.Class == "PALADIN") then
                     return true
-                elseif subtype == "Mail" then
+                elseif subtype == e.L.MAIL then
                     return true
                 end
             end
-        elseif type == "Weapon" then
+        elseif type == e.L.WEAPON then
             --print("looking to see if I can use a: Weapon")
             if e.SlotTranslate[subtype] then
                 if name == e.SlotTranslate[subtype] then
@@ -660,7 +705,7 @@ function e.GetWeaponSpeed(slot,item)
                 local text=currentline:GetText()
                 if text then
                     local splits = e.splitString(text, " ")
-                    if splits[1] == "Speed" then
+                    if splits[1] == e.L.SPEED then
                         if splits[2] then
                             local speed = tonumber(splits[2])
                             e.weaponSpeedCache[item] = speed -- ADDED: Save to cache
@@ -685,7 +730,7 @@ function e.GetSetBonus(slot,item)
                 local text=currentline:GetText()
                 if text then
                     local splits = e.splitString(text, " ")
-                    if splits[1] == "Speed" then
+                    if splits[1] == e.L.SPEED then
                         if splits[2] then
                             return tonumber(splits[2])
                         end
@@ -1077,7 +1122,7 @@ function e:OnEvent(event, ...)
     end
 
     if event == "UI_ERROR_MESSAGE" then --? This was to fix an edgecase, I don't remember what issue caused it.
-        if arg1 == "The item was not found." or arg1 == "You can't carry any more of those items." then
+        if arg1 == ERR_ITEM_NOT_FOUND or arg1 == ERR_ITEM_MAX_COUNT then
             e.throttle = GetTime()
         end
     end
