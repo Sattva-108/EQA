@@ -1,3 +1,5 @@
+--- START OF FILE Paste July 08, 2026 - 9:06AM ---
+
 -- event: GOSSIP_SHOW
 -- GetGossipAvailableQuests() returns title1, level1, isLowLevel1, isDaily1, isRepeatable1 [, title2, level2, isLowLevel2, , isDaily2, isRepeatable2...]
 -- GetNumGossipAvailableQuests() returns number
@@ -49,6 +51,7 @@ e.lastTurnIn = 0
 e.ActiveProfile = 0
 
 e.checkTooltips = {}
+e.weaponSpeedCache = {} -- ADDED: Cache for weapon speeds to prevent tooltip lag
 
 e.exceptionClasses = {
     ["WARRIOR"] = true,
@@ -437,6 +440,7 @@ function e.createTooltip()
 end
 e.createTooltip()
 
+
 --Bag Space Check
 function e.getEmptyBagSlots()
     local Bags = {}
@@ -643,6 +647,10 @@ end
 
 function e.GetWeaponSpeed(slot,item)
     if item then
+        if e.weaponSpeedCache[item] ~= nil then
+            if e.weaponSpeedCache[item] == false then return nil else return e.weaponSpeedCache[item] end
+        end -- ADDED: Check cache
+
         EQATooltip:ClearLines()
         EQATooltip:SetHyperlink(item)
         for line = 3,6,1 do --Check the common lines
@@ -654,12 +662,15 @@ function e.GetWeaponSpeed(slot,item)
                     local splits = e.splitString(text, " ")
                     if splits[1] == "Speed" then
                         if splits[2] then
-                            return tonumber(splits[2])
+                            local speed = tonumber(splits[2])
+                            e.weaponSpeedCache[item] = speed -- ADDED: Save to cache
+                            return speed
                         end
                     end
                 end
             end
         end
+        e.weaponSpeedCache[item] = false -- ADDED: Save empty result to cache
     end
 end
 
@@ -1025,12 +1036,17 @@ ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", function(self, event, message,
 end)
 
 
+
 -- *Initionation
 
 function e:OnEvent(event, ...)
     --START_LOOT_ROLL arg1 = id
     if event == "BAG_UPDATE" or event == "UPDATE_BAG" or event == "BANKFRAME_OPENED" or event == "EQA_ADIBAGS_SHOW" then
-        AceTimer:ScheduleTimer(function() e.GetBagUpgrades() end, 0.4)
+        if e.bagUpdateTimer then
+            AceTimer:CancelTimer(e.bagUpdateTimer)
+        end
+        e.bagUpdateTimer = AceTimer:ScheduleTimer(function() e.GetBagUpgrades() end, 0.4)
+        --e.GetBagUpgrades()
     end
 
     if event == "MERCHANT_SHOW" then
@@ -1079,7 +1095,9 @@ function e:OnEvent(event, ...)
         e.ShiftDown = false
     end
     --Accept Quests
-    e.getAvailableQuests()
+    if event == "GOSSIP_SHOW" or event == "QUEST_GREETING" or event == "QUEST_DETAIL" then
+        e.getAvailableQuests()
+    end
     if event == "QUEST_DETAIL" and (not e.ShiftDown) then
         AcceptQuest()
     end
@@ -1116,4 +1134,3 @@ function e:OnEvent(event, ...)
     return true
 
 end
-
