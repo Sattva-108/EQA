@@ -1034,51 +1034,35 @@ function e.QuestGreeting()
 end
 
 
--- Function to check for upgrades in a chat message
-local function CheckForUpgradeInChat(message)
-    -- Check for item links in the message
-    for itemLink in message:gmatch("|%x+|Hitem:.-|h%[.-%]|h|r") do
-        -- Get the item ID from the item link
-        local itemID = itemLink:match("item:(%d+)")
-        if itemID then
-            -- Query the item info
-            local itemName, itemLink, itemRarity, itemLevel, itemMinLevel, itemType, itemSubType, itemStackCount, itemEquipLoc, itemTexture, itemSellPrice = GetItemInfo(itemID)
-            if itemName then
-                -- Check if the item is usable by the player's class
-                if e.canUseItem(itemType, itemSubType, _, itemEquipLoc) then
-                    -- Get the tooltip text
-                    GameTooltip:SetOwner(UIParent, "ANCHOR_NONE")
-                    GameTooltip:SetHyperlink(itemLink)
-                    local tooltipText = ""
-                    for i = 1, GameTooltip:NumLines() do
-                        local line = _G["GameTooltipTextLeft" .. i]
-                        if line and line:GetText() then
-                            tooltipText = tooltipText .. line:GetText() .. "\n"
+-- Function to check for upgrades in a chat message (locale-aware)
+if not e.chatHooked then
+    local function CheckForUpgradeInChat(message)
+        for itemLink in message:gmatch("|%x+|Hitem:.-|h%[.-%]|h|r") do
+            local itemID = itemLink:match("item:(%d+)")
+            if itemID then
+                local itemName, _, _, _, _, itemType, itemSubType, _, itemEquipLoc = GetItemInfo(itemLink)
+                if itemName and e.canUseItem(itemType, itemSubType, nil, itemEquipLoc) then
+                    local slot = e.equipLoctoSlot[itemEquipLoc]
+                    if slot then
+                        local equippedValue = e.GetCurrentItemValue(itemEquipLoc) or 0
+                        local stats = GetItemStats(itemLink)
+                        local value = stats and e.GetValueForItem(stats, itemLink, false, nil, slot) or 0
+                        if value > 0 and value > equippedValue then
+                            print("|cFF33FF99EQA: |r|cFFFFFF00Upgrade found in chat: |r" .. itemLink)
                         end
-                    end
-                    GameTooltip:Hide()
-
-                    -- Check if the item is an upgrade
-                    local loc = select(9, GetItemInfo(itemLink))
-                    local slot = e.equipLoctoSlot[loc]
-                    local equippedValue = e.GetCurrentItemValue(loc)
-                    local value = e.GetValueForItem(GetItemStats(itemLink), itemLink, false, nil, slot)
-
-                    if value and value > 0 and equippedValue and value > equippedValue then
-                        -- Print the upgrade message
-                        print("|cFF33FF99EQA: |r|cFFFFFF00Upgrade found in chat: |r" .. itemLink)
                     end
                 end
             end
         end
     end
-end
 
--- Hook into the guild chat message event
-ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", function(self, event, message, sender, language, channelString, target, flags, channelNumber, channelName, unknown, lineID, guid)
-    CheckForUpgradeInChat(message)
-    return false
-end)
+    ChatFrame_AddMessageEventFilter("CHAT_MSG_GUILD", function(self, event, message, ...)
+        CheckForUpgradeInChat(message)
+        return false
+    end)
+
+    e.chatHooked = true
+end
 
 
 
