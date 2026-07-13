@@ -174,6 +174,7 @@ function e.ShowValue(tooltip)
     _G[tooltip:GetName().."TextRight1"]:SetText(nil)
     if item then
         local iteminfo = GetItemStats(item)
+        if not iteminfo then return end
         local loc = select(9,GetItemInfo(item))
         local slot = e.equipLoctoSlot[loc]
         --print(loc)
@@ -829,30 +830,38 @@ function e.GetBestItem()
     e.ImportantItem = false
     local _
     local delta = {}
+    local allLoaded = true
     for i=1,numChoices do
         choices[i] = GetQuestItemLink("choice", i)
-        stats[i] = GetItemStats(choices[i])
-        gold[i] = select(11, GetItemInfo(choices[i]))
-        --e.dump(stats[i])
-        type[i], subtype[i], _, equipLoc[i] = select(6, GetItemInfo(choices[i]))
-        --print(type[i])
-        --print(subtype[i])
-        if (gold[i] > goldValue) or (gold[i] == goldValue) then
-            goldIndex = i
-            goldValue = gold[i]
-        end
-        --print(type[i], subtype[i])
-        if e.canUseItem(type[i], subtype[i], _, equipLoc[i]) then --and (not c.goldOnly) then
-            --print("can use "..i..", it is worth: "..e.GetValueForItem(stats[i]), choices[i]) --.RESTISTANCE0_NAME
-            delta[i] = e.GetValueForItem(stats[i], choices[i])-(e.GetCurrentItemValue(equipLoc[i],true) or 0)
-            if not item.delta then
-                item = {["delta"] = delta[i], ["questRewardSlot"] = i}
+        if not choices[i] then
+            allLoaded = false
+        else
+            stats[i] = GetItemStats(choices[i])
+            gold[i] = select(11, GetItemInfo(choices[i]))
+            --e.dump(stats[i])
+            type[i], subtype[i], _, equipLoc[i] = select(6, GetItemInfo(choices[i]))
+            --print(type[i])
+            --print(subtype[i])
+            if (gold[i] > goldValue) or (gold[i] == goldValue) then
+                goldIndex = i
+                goldValue = gold[i]
             end
-            if (delta[i] > item.delta) or (delta[i] == item.delta) then
-                item = {["delta"] = delta[i], ["questRewardSlot"] = i}
+            --print(type[i], subtype[i])
+            if e.canUseItem(type[i], subtype[i], _, equipLoc[i]) then --and (not c.goldOnly) then
+                --print("can use "..i..", it is worth: "..e.GetValueForItem(stats[i]), choices[i]) --.RESTISTANCE0_NAME
+                delta[i] = e.GetValueForItem(stats[i], choices[i])-(e.GetCurrentItemValue(equipLoc[i],true) or 0)
+                if not item.delta then
+                    item = {["delta"] = delta[i], ["questRewardSlot"] = i}
+                end
+                if (delta[i] > item.delta) or (delta[i] == item.delta) then
+                    item = {["delta"] = delta[i], ["questRewardSlot"] = i}
+                end
+                --print("Delta for item "..i.." is: "..delta[i]) --(e.GetFullValueForItem(stats[i])-e.LookUpCurrentItem(equipLoc[i])))
             end
-            --print("Delta for item "..i.." is: "..delta[i]) --(e.GetFullValueForItem(stats[i])-e.LookUpCurrentItem(equipLoc[i])))
         end
+    end
+    if not allLoaded then
+        WeakAuras.timer:ScheduleTimer(function() e.selectReward() end, 0.2)
     end
     return item, goldIndex
 end
